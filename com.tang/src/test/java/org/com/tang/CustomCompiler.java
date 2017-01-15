@@ -12,6 +12,7 @@ import javassist.NotFoundException;
 public class CustomCompiler
 {
     private final String PACKAGENAME = "com.tang.huawei";
+    
     public Class<?> getGeneratorClass()
     {
         ClassPool pool = new ClassPool(true);
@@ -48,17 +49,56 @@ public class CustomCompiler
         return null;
     }
     
+    public Class<?> getGeneratorClass(Class<?> sourceClass)
+    {
+        String sourceClassSimpleName = sourceClass.getSimpleName();
+        String sourceClassName = sourceClass.getName();
+        System.out.println(sourceClassSimpleName);
+        ClassPool pool = new ClassPool(true);
+        pool.appendClassPath(new LoaderClassPath(ClassHelper.getCallerClassLoader(getClass())));
+        String importName = "com.tang.huawei.PlanManager";
+        pool.importPackage(importName);
+        String className = PACKAGENAME + ".PlanGenerator$" + sourceClassSimpleName;
+        CtClass ctl = pool.makeClass(className);
+        try
+        {
+            ctl.addInterface(pool.get("org.com.tang.PlanGenerator"));
+            String methodBody = "public String getPlan(" + sourceClassName + " request)\n"+
+"    {\n"+
+"        StringBuilder sb = new StringBuilder();\n"+
+"        sb.append(\"address=\");\n"+
+"        sb.append(request.getAddress()).append(\"|\");\n"+
+"        sb.append(\"id=\").append(request.getId()).append(\"|\");\n"+
+"        sb.append(\"msn=\").append(request.getMsn());\n"+
+"        return sb.toString();\n"+
+"    }\n";
+            ctl.addMethod(CtNewMethod.make(methodBody, ctl));
+            
+            return ctl.toClass(CustomCompiler.class.getClassLoader(),null);
+        }
+        catch (NotFoundException e)
+        {
+            e.printStackTrace();
+        }
+        catch (CannotCompileException e)
+        {
+            e.printStackTrace();
+        }
+        return null;
+    }
+    
     public static void main(String[] args)
     {
+        ReleaseRequest request = new ReleaseRequest();
+        request.setAddress("aaa");
+        request.setId("bbb");
+        request.setMsn("ccc");
         CustomCompiler compiler = new CustomCompiler();
-        Class<?> clazz = compiler.getGeneratorClass();
+        Class<?> clazz = compiler.getGeneratorClass(request.getClass());
         try
         {
             PlanGenerator instance = (PlanGenerator)clazz.newInstance();
-            ReleaseRequest request = new ReleaseRequest();
-            request.setAddress("aaa");
-            request.setId("bbb");
-            request.setMsn("ccc");
+            
             System.out.println(instance.getPlan(request));
         }
         catch (InstantiationException e)
